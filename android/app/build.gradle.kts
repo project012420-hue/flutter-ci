@@ -6,12 +6,6 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// ── Load keystore properties ──────────────────────────────
-val keystoreProperties = java.util.Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
-}
 // ─────────────────────────────────────────────────────────
 
 android {
@@ -31,10 +25,11 @@ android {
     // ── Signing config ────────────────────────────────────
     signingConfigs {
         create("release") {
-            keyAlias      = keystoreProperties["keyAlias"] as String?
-            keyPassword   = keystoreProperties["keyPassword"] as String?
-            storeFile     = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String?
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            storeFile = keystorePath?.let { file(it) }
         }
     }
     // ─────────────────────────────────────────────────────

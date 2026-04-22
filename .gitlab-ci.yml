@@ -1,513 +1,76 @@
-# ============================================================
-# GitLab CI/CD Pipeline — Flutter (Android + iOS)
-# Flavors: dev | staging | prod
-# Deploy: Google Play Store + Apple App Store
-# ============================================================
+image: ghcr.io/cirruslabs/flutter:stable
 
-# ─── Global Variables ───────────────────────────────────────
-variables:
-  FLUTTER_VERSION: "3.22.0"
-  JAVA_VERSION: "17"
-  RUBY_VERSION: "3.2"
-  ANDROID_COMPILE_SDK: "34"
-  ANDROID_BUILD_TOOLS: "34.0.0"
-
-  # Flavor-specific App IDs (override in GitLab CI/CD Settings > Variables)
-  APP_ID_DEV: "com.yourapp.dev"
-  APP_ID_STAGING: "com.yourapp.staging"
-  APP_ID_PROD: "com.yourapp"
-
-  # Fastlane / Deployment targets
-  PLAY_STORE_TRACK_DEV: "internal"
-  PLAY_STORE_TRACK_STAGING: "alpha"
-  PLAY_STORE_TRACK_PROD: "production"
-
-  APP_STORE_LANE_DEV: "testflight_dev"
-  APP_STORE_LANE_STAGING: "testflight_staging"
-  APP_STORE_LANE_PROD: "appstore_prod"
-
-# ─── Pipeline Stages ────────────────────────────────────────
 stages:
-  - validate
-  - test
-  - build_android
-  - build_ios
-  - deploy_android
-  - deploy_ios
+  - build
 
-# ─── Reusable Templates ─────────────────────────────────────
+variables:
+  ANDROID_SDK_ROOT: "/opt/android-sdk"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
 
-# Flutter setup anchor (used by most jobs)
-.flutter_setup: &flutter_setup
-  before_script:
-    - export PATH="$HOME/.flutter/bin:$PATH"
-    - |
-      if [ ! -d "$HOME/.flutter" ]; then
-        git clone https://github.com/flutter/flutter.git \
-          -b $FLUTTER_VERSION --depth 1 $HOME/.flutter
-      fi
-    - flutter --version
-    - flutter pub get
-    - dart pub global activate flutter_gen 2>/dev/null || true
+cache:
+  paths:
+    - .gradle/
+    - build/
 
-# Android job base
-.android_base:
-  image: mingc/android-build-box:latest
-  tags:
-    - android
-  cache:
-    key: flutter-android-$CI_COMMIT_REF_SLUG
-    paths:
-      - .pub-cache/
-      - $HOME/.flutter/
-      - android/.gradle/
-  <<: *flutter_setup
+before_script:
+  - flutter --version
+  - flutter pub get
 
-# iOS job base — requires macOS GitLab runner
-.ios_base:
-  tags:
-    - macos
-    - ios
-  cache:
-    key: flutter-ios-$CI_COMMIT_REF_SLUG
-    paths:
-      - .pub-cache/
-      - $HOME/.flutter/
-      - ios/Pods/
-  before_script:
-    - export PATH="$HOME/.flutter/bin:$PATH"
-    - |
-      if [ ! -d "$HOME/.flutter" ]; then
-        git clone https://github.com/flutter/flutter.git \
-          -b $FLUTTER_VERSION --depth 1 $HOME/.flutter
-      fi
-    - flutter --version
-    - flutter pub get
-    - cd ios && pod install --repo-update && cd ..
+  # decode keystore
+  - echo "$ANDROID_KEYSTORE" | base64 -d > android/app/keystore.jks
+  - export ANDROID_KEYSTORE_PATH=android/app/keystore.jks
 
-# Flavor matrix anchor — loop helper
-.flavor_vars_dev: &flavor_vars_dev
-  FLAVOR: "dev"
-  FLAVOR_DISPLAY: "Dev"
-  DART_DEFINE: "--dart-define=FLAVOR=dev --dart-define=API_URL=$API_URL_DEV"
+  # create entrypoints automatically
+  - |
+    cat > lib/main_dev.dart <<EOF
+    import 'main.dart';
+    void main() {
+      const String flavor = 'dev';
+      main();
+    }
+    EOF
 
-.flavor_vars_staging: &flavor_vars_staging
-  FLAVOR: "staging"
-  FLAVOR_DISPLAY: "Staging"
-  DART_DEFINE: "--dart-define=FLAVOR=staging --dart-define=API_URL=$API_URL_STAGING"
+  - |
+    cat > lib/main_staging.dart <<EOF
+    import 'main.dart';
+    void main() {
+      const String flavor = 'staging';
+      main();
+    }
+    EOF
 
-.flavor_vars_prod: &flavor_vars_prod
-  FLAVOR: "prod"
-  FLAVOR_DISPLAY: "Production"
-  DART_DEFINE: "--dart-define=FLAVOR=prod --dart-define=API_URL=$API_URL_PROD"
+  - |
+    cat > lib/main_prod.dart <<EOF
+    import 'main.dart';
+    void main() {
+      const String flavor = 'prod';
+      main();
+    }
+    EOF
 
-# ─── Stage 1: Validate ──────────────────────────────────────
-
-flutter:analyze:
-  stage: validate
-  extends: .android_base
+build_dev:
+  stage: build
   script:
-    - flutter analyze --no-fatal-infos
-  allow_failure: false
-
-flutter:format:
-  stage: validate
-  extends: .android_base
-  script:
-    - dart format --set-exit-if-changed lib/ test/
-  allow_failure: true    # warn but don't block
-
-# ─── Stage 2: Test ──────────────────────────────────────────
-
-flutter:unit_test:
-  stage: test
-  extends: .android_base
-  script:
-    - flutter test --coverage --reporter=json > test-report.json
-    - flutter test --coverage
-    - lcov --summary coverage/lcov.info
-  coverage: '/lines\.*: \d+\.\d+\%/'
-  artifacts:
-    when: always
-    reports:
-      junit: test-report.json
-    paths:
-      - coverage/
-    expire_in: 7 days
-  needs:
-    - flutter:analyze
-
-flutter:widget_test:
-  stage: test
-  extends: .android_base
-  script:
-    - flutter test test/widget/ --reporter=github
-  needs:
-    - flutter:analyze
-  allow_failure: false
-
-# ─── Stage 3: Build Android ─────────────────────────────────
-
-# ── Dev (APK — for testers) ──
-android:build:dev:
-  stage: build_android
-  extends: .android_base
-  variables:
-    <<: *flavor_vars_dev
-  script:
-    - !reference [.decode_android_keystore, script]
-    - |
-      flutter build apk \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --build-number=$CI_PIPELINE_IID \
-        --build-name="$(cat pubspec.yaml | grep version | head -1 | awk '{print $2}' | cut -d'+' -f1)"
-    - mkdir -p artifacts/android
-    - cp build/app/outputs/flutter-apk/app-$FLAVOR-release.apk artifacts/android/app-$FLAVOR.apk
+    - flutter build appbundle --flavor dev -t lib/main_dev.dart
   artifacts:
     paths:
-      - artifacts/android/app-dev.apk
-    expire_in: 3 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH =~ /^feature\//'
+      - build/app/outputs/bundle/devRelease/
+    expire_in: 1 week
 
-# ── Staging (AAB) ──
-android:build:staging:
-  stage: build_android
-  extends: .android_base
-  variables:
-    <<: *flavor_vars_staging
+build_staging:
+  stage: build
   script:
-    - !reference [.decode_android_keystore, script]
-    - |
-      flutter build appbundle \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --build-number=$CI_PIPELINE_IID \
-        --build-name="$(cat pubspec.yaml | grep version | head -1 | awk '{print $2}' | cut -d'+' -f1)"
-    - mkdir -p artifacts/android
-    - cp build/app/outputs/bundle/${FLAVOR}Release/app-$FLAVOR-release.aab artifacts/android/app-$FLAVOR.aab
+    - flutter build appbundle --flavor staging -t lib/main_staging.dart
   artifacts:
     paths:
-      - artifacts/android/app-staging.aab
-    expire_in: 3 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "staging"'
+      - build/app/outputs/bundle/stagingRelease/
+    expire_in: 1 week
 
-# ── Prod (AAB) ──
-android:build:prod:
-  stage: build_android
-  extends: .android_base
-  variables:
-    <<: *flavor_vars_prod
+build_prod:
+  stage: build
   script:
-    - !reference [.decode_android_keystore, script]
-    - |
-      flutter build appbundle \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --release \
-        --build-number=$CI_PIPELINE_IID \
-        --build-name="$(cat pubspec.yaml | grep version | head -1 | awk '{print $2}' | cut -d'+' -f1)"
-    - mkdir -p artifacts/android
-    - cp build/app/outputs/bundle/${FLAVOR}Release/app-$FLAVOR-release.aab artifacts/android/app-$FLAVOR.aab
+    - flutter build appbundle --flavor prod -t lib/main_prod.dart
   artifacts:
     paths:
-      - artifacts/android/app-prod.aab
-    expire_in: 7 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v[0-9]+/'
-
-# ─── Stage 4: Build iOS ─────────────────────────────────────
-
-# ── Dev ──
-ios:build:dev:
-  stage: build_ios
-  extends: .ios_base
-  variables:
-    <<: *flavor_vars_dev
-  script:
-    - !reference [.setup_ios_certs, script]
-    - |
-      flutter build ipa \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --build-number=$CI_PIPELINE_IID \
-        --export-options-plist=ios/ExportOptions$FLAVOR_DISPLAY.plist
-    - mkdir -p artifacts/ios
-    - cp build/ios/ipa/*.ipa artifacts/ios/app-$FLAVOR.ipa
-  artifacts:
-    paths:
-      - artifacts/ios/app-dev.ipa
-    expire_in: 3 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH =~ /^feature\//'
-
-# ── Staging ──
-ios:build:staging:
-  stage: build_ios
-  extends: .ios_base
-  variables:
-    <<: *flavor_vars_staging
-  script:
-    - !reference [.setup_ios_certs, script]
-    - |
-      flutter build ipa \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --build-number=$CI_PIPELINE_IID \
-        --export-options-plist=ios/ExportOptions$FLAVOR_DISPLAY.plist
-    - mkdir -p artifacts/ios
-    - cp build/ios/ipa/*.ipa artifacts/ios/app-$FLAVOR.ipa
-  artifacts:
-    paths:
-      - artifacts/ios/app-staging.ipa
-    expire_in: 3 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "staging"'
-
-# ── Prod ──
-ios:build:prod:
-  stage: build_ios
-  extends: .ios_base
-  variables:
-    <<: *flavor_vars_prod
-  script:
-    - !reference [.setup_ios_certs, script]
-    - |
-      flutter build ipa \
-        --flavor $FLAVOR \
-        --target lib/main_$FLAVOR.dart \
-        $DART_DEFINE \
-        --release \
-        --build-number=$CI_PIPELINE_IID \
-        --export-options-plist=ios/ExportOptions$FLAVOR_DISPLAY.plist
-    - mkdir -p artifacts/ios
-    - cp build/ios/ipa/*.ipa artifacts/ios/app-$FLAVOR.ipa
-  artifacts:
-    paths:
-      - artifacts/ios/app-prod.ipa
-    expire_in: 7 days
-  needs:
-    - flutter:unit_test
-    - flutter:widget_test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v[0-9]+/'
-
-# ─── Stage 5: Deploy Android ────────────────────────────────
-
-.android_deploy_base:
-  image: ruby:$RUBY_VERSION
-  tags:
-    - android
-  before_script:
-    - gem install fastlane --no-document
-    - echo $GOOGLE_PLAY_JSON_KEY | base64 -d > /tmp/google-play-key.json
-
-android:deploy:dev:
-  stage: deploy_android
-  extends: .android_deploy_base
-  variables:
-    <<: *flavor_vars_dev
-  script:
-    - |
-      fastlane supply \
-        --aab artifacts/android/app-dev.aab \
-        --package_name $APP_ID_DEV \
-        --track $PLAY_STORE_TRACK_DEV \
-        --json_key /tmp/google-play-key.json \
-        --skip_upload_metadata true \
-        --skip_upload_images true \
-        --skip_upload_screenshots true
-  needs:
-    - android:build:dev
-  environment:
-    name: android/dev
-    url: https://play.google.com/console
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
-      when: on_success
-
-android:deploy:staging:
-  stage: deploy_android
-  extends: .android_deploy_base
-  variables:
-    <<: *flavor_vars_staging
-  script:
-    - |
-      fastlane supply \
-        --aab artifacts/android/app-staging.aab \
-        --package_name $APP_ID_STAGING \
-        --track $PLAY_STORE_TRACK_STAGING \
-        --json_key /tmp/google-play-key.json \
-        --skip_upload_metadata true \
-        --skip_upload_images true \
-        --skip_upload_screenshots true
-  needs:
-    - android:build:staging
-  environment:
-    name: android/staging
-    url: https://play.google.com/console
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "staging"'
-      when: on_success
-
-android:deploy:prod:
-  stage: deploy_android
-  extends: .android_deploy_base
-  variables:
-    <<: *flavor_vars_prod
-  script:
-    - |
-      fastlane supply \
-        --aab artifacts/android/app-prod.aab \
-        --package_name $APP_ID_PROD \
-        --track $PLAY_STORE_TRACK_PROD \
-        --json_key /tmp/google-play-key.json \
-        --skip_upload_metadata true \
-        --skip_upload_images true \
-        --skip_upload_screenshots true
-  needs:
-    - android:build:prod
-  environment:
-    name: android/production
-    url: https://play.google.com/console
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+/'
-      when: manual   # requires manual trigger for prod
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-
-# ─── Stage 6: Deploy iOS ────────────────────────────────────
-
-.ios_deploy_base:
-  tags:
-    - macos
-    - ios
-  before_script:
-    - gem install fastlane --no-document
-    - !reference [.setup_ios_certs, script]
-
-ios:deploy:dev:
-  stage: deploy_ios
-  extends: .ios_deploy_base
-  variables:
-    <<: *flavor_vars_dev
-  script:
-    - |
-      fastlane pilot upload \
-        --ipa artifacts/ios/app-dev.ipa \
-        --api_key_path /tmp/app-store-key.json \
-        --skip_waiting_for_build_processing true \
-        --changelog "Dev build $CI_PIPELINE_IID - $CI_COMMIT_SHORT_SHA"
-  needs:
-    - ios:build:dev
-  environment:
-    name: ios/dev
-    url: https://appstoreconnect.apple.com
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
-      when: on_success
-
-ios:deploy:staging:
-  stage: deploy_ios
-  extends: .ios_deploy_base
-  variables:
-    <<: *flavor_vars_staging
-  script:
-    - |
-      fastlane pilot upload \
-        --ipa artifacts/ios/app-staging.ipa \
-        --api_key_path /tmp/app-store-key.json \
-        --skip_waiting_for_build_processing true \
-        --changelog "Staging build $CI_PIPELINE_IID - $CI_COMMIT_SHORT_SHA"
-  needs:
-    - ios:build:staging
-  environment:
-    name: ios/staging
-    url: https://appstoreconnect.apple.com
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "staging"'
-      when: on_success
-
-ios:deploy:prod:
-  stage: deploy_ios
-  extends: .ios_deploy_base
-  variables:
-    <<: *flavor_vars_prod
-  script:
-    - |
-      fastlane deliver \
-        --ipa artifacts/ios/app-prod.ipa \
-        --api_key_path /tmp/app-store-key.json \
-        --submit_for_review false \
-        --automatic_release false \
-        --skip_metadata true \
-        --skip_screenshots true
-  needs:
-    - ios:build:prod
-  environment:
-    name: ios/production
-    url: https://appstoreconnect.apple.com
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+/'
-      when: manual
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-
-# ─── Helper Script References ───────────────────────────────
-# These are referenced via `!reference` above
-
-.decode_android_keystore:
-  script:
-    - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
-    - |
-      cat > android/key.properties <<EOF
-      storePassword=$ANDROID_STORE_PASSWORD
-      keyPassword=$ANDROID_KEY_PASSWORD
-      keyAlias=$ANDROID_KEY_ALIAS
-      storeFile=keystore.jks
-      EOF
-
-.setup_ios_certs:
-  script:
-    - echo "$APP_STORE_CONNECT_API_KEY" | base64 -d > /tmp/app-store-key.json
-    - |
-      # Import signing certificate
-      echo "$IOS_DISTRIBUTION_CERT_BASE64" | base64 -d > /tmp/distribution.p12
-      security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-      security default-keychain -s build.keychain
-      security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-      security import /tmp/distribution.p12 \
-        -k build.keychain \
-        -P "$IOS_CERT_PASSWORD" \
-        -A -T /usr/bin/codesign
-      security set-key-partition-list \
-        -S apple-tool:,apple: \
-        -s -k "$KEYCHAIN_PASSWORD" build.keychain
-    - |
-      # Install provisioning profiles
-      mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-      echo "$IOS_PROFILE_DEV_BASE64"     | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/dev.mobileprovision
-      echo "$IOS_PROFILE_STAGING_BASE64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/staging.mobileprovision
-      echo "$IOS_PROFILE_PROD_BASE64"    | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/prod.mobileprovision
+      - build/app/outputs/bundle/prodRelease/
+    expire_in: 1 week

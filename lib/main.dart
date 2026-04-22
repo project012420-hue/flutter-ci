@@ -5,6 +5,7 @@ import 'package:screen_sharing/cubit_providers/cubit_providers.dart';
 import 'package:screen_sharing/routes/routes.dart';
 
 import 'features/home_screen/view/home_screen.dart';
+const String flavor = String.fromEnvironment('FLAVOR', defaultValue: 'prod');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
