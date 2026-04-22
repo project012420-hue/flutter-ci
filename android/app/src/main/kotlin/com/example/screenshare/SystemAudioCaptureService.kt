@@ -51,7 +51,10 @@ class SystemAudioCaptureService : Service() {
     }
 
     private fun startAudioCapture() {
-        val config = AudioPlaybackCaptureConfiguration.Builder(MediaRecorder.AudioSource.REMOTE_SUBMIX)
+        val mediaProjection =
+            mediaProjectionManager.getMediaProjection(resultCode, dataIntent)
+
+        val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
             .addMatchingUsage(android.media.AudioAttributes.USAGE_MEDIA)
             .build()
 
@@ -72,21 +75,6 @@ class SystemAudioCaptureService : Service() {
             .setBufferSizeInBytes(bufferSize)
             .setAudioPlaybackCaptureConfig(config)
             .build()
-
-        audioRecord?.startRecording()
-        isRecording = true
-
-        recordingThread = Thread {
-            val buffer = ByteArray(bufferSize)
-            while (isRecording) {
-                val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                if (read > 0) {
-                    // Here, you can send buffer to Flutter via MethodChannel or feed to WebRTC
-                    // e.g. methodChannel.invokeMethod("onAudioData", buffer)
-                }
-            }
-        }
-        recordingThread?.start()
     }
 
     override fun onDestroy() {
