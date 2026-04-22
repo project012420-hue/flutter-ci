@@ -28,7 +28,7 @@ android {
             keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
             keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
             storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
-            storeFile = file("keystore.jks")
+            storeFile = file("upload-keystore.jks")
         }
     }
     // ─────────────────────────────────────────────────────
