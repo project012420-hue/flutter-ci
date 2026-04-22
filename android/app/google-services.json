@@ -7,9 +7,66 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:3118d2075d84b7baac505d",
+        "android_client_info": {
+          "package_name": "com.example.notification_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:830779033064:android:2496c87a0d54c03dac505d",
         "android_client_info": {
           "package_name": "com.example.screenshare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:6b4462acc553c874ac505d",
+        "android_client_info": {
+          "package_name": "com.example.screenshare.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:ee67a072b6e0e3b4ac505d",
+        "android_client_info": {
+          "package_name": "com.example.screenshare.staging"
         }
       },
       "oauth_client": [],
