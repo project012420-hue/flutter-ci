@@ -25,10 +25,10 @@ android {
     // ── Signing config ────────────────────────────────────
     signingConfigs {
         create("release") {
-            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            storeFile = file("upload-keystore.jks")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
+            storeFile = file("keystore.jks")
         }
     }
     // ─────────────────────────────────────────────────────
