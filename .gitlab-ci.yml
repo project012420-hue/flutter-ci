@@ -17,7 +17,7 @@ before_script:
   - flutter pub get
 
   # decode keystore
-  - echo "$ANDROID_KEYSTORE" | base64 -d > android/app/keystore.jks
+  - echo "$ANDROID_KEYSTORE" | base64 -d > android/app/upload-keystore.jks
   - export ANDROID_KEYSTORE_PATH=android/app/keystore.jks
 
   # create entrypoints automatically
