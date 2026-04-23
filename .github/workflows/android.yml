@@ -71,12 +71,6 @@ jobs:
                 runApp(const MyApp());
               }
           EOF
-      - name: Debug Kotlin compile (REAL ERROR)
-        run: |
-          cd android
-          ls -la   # just to confirm gradlew exists
-          chmod +x gradlew
-          ./gradlew compileDevReleaseKotlin --stacktrace
 
       # ⚙️ Build Dev
       - name: Build Dev
