@@ -191,9 +191,11 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add android/app/upload-keystore.jks
+          echo "Adding keystore: $KEYSTORE_PATH"
+
+          git add "$KEYSTORE_PATH"
           git add android/app/google-services.json
 
-          git commit -m "Auto add keystore + firebase for $APP_ID" || echo "No changes"
+          git commit -m "Auto add keystore ($KEYSTORE_PATH) + firebase for $APP_ID" || echo "No changes"
 
           git push
