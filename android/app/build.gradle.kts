@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
@@ -26,10 +25,16 @@ android {
     signingConfigs {
         create("release") {
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH") ?: ""
+            if (keystorePath == null) {
+                throw GradleException("ANDROID_KEYSTORE_PATH not set")
+            }
+
+            storeFile = file(keystorePath)
+
             val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
             val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
             val storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            storeFile = keystorePath?.let { file(it.removePrefix("android/app/")) }
+            //storeFile = keystorePath?.let { file(it.removePrefix("android/app/")) }
         //storeFile = file("upload-keystore.jks")
         }
     }
