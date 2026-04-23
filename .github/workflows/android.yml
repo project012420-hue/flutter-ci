@@ -125,7 +125,8 @@ jobs:
           if [ -z "$FIREBASE_APP_ID" ] || [ "$FIREBASE_APP_ID" = "null" ]; then
             echo "App not found. Creating..."
 
-            firebase apps:create ANDROID "$PACKAGE_NAME" \
+            firebase apps:create ANDROID \
+              --package-name="$PACKAGE_NAME" \
               --project="$PROJECT_ID"
 
             firebase apps:list --project="$PROJECT_ID" --json > apps.json
