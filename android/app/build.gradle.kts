@@ -25,10 +25,12 @@ android {
     // ── Signing config ────────────────────────────────────
     signingConfigs {
         create("release") {
-            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
-            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
-            storeFile = file("upload-keystore.jks")
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            val storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            storeFile = keystorePath?.let { file(it) }
+            //storeFile = file("upload-keystore.jks")
         }
     }
     // ─────────────────────────────────────────────────────
