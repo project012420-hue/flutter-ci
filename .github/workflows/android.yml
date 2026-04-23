@@ -72,8 +72,11 @@ jobs:
               }
           EOF
       - name: Debug Kotlin compile (REAL ERROR)
-        working-directory: android
-        run: ./gradlew compileDevReleaseKotlin --stacktrace
+        run: |
+          cd android
+          ls -la   # just to confirm gradlew exists
+          chmod +x gradlew
+          ./gradlew compileDevReleaseKotlin --stacktrace
 
       # ⚙️ Build Dev
       - name: Build Dev
