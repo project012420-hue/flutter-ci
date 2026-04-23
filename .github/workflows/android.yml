@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -13,35 +13,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---------------- JAVA ----------------
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # ---------------- FLUTTER ----------------
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.41.7"
 
-      # ---------------- DEPENDENCIES ----------------
       - name: Install dependencies
         run: flutter pub get
 
-      # ---------------- KEYSTORE ----------------
+      # 🔐 Decode keystore from GitHub Secrets
       - name: Decode Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/upload-keystore.jks
 
-      # ---------------- ENTRYPOINT GENERATION ----------------
+      # ⚙️ AUTO ENTRYPOINT GENERATION (ADDED ONLY THIS)
       - name: Generate entrypoints
         run: |
           mkdir -p lib
 
-          for env in dev staging prod; do
-            cat > lib/main_${env}.dart <<'EOF'
+          cat > lib/main_dev.dart <<'EOF'
   import 'main.dart';
   import 'package:flutter/material.dart';
   
@@ -49,9 +45,26 @@ jobs:
   runApp(const MyApp());
 }
   EOF
-  done
+  
+  cat > lib/main_staging.dart <<'EOF'
+  import 'main.dart';
+  import 'package:flutter/material.dart';
+  
+  void main() {
+  runApp(const MyApp());
+}
+  EOF
+  
+  cat > lib/main_prod.dart <<'EOF'
+  import 'main.dart';
+  import 'package:flutter/material.dart';
+  
+  void main() {
+  runApp(const MyApp());
+}
+  EOF
 
-# ---------------- BUILD DEV ----------------
+# ⚙️ Build Dev
 - name: Build Dev
   run: flutter build appbundle --flavor dev -t lib/main_dev.dart
   env:
@@ -60,7 +73,7 @@ jobs:
     ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-# ---------------- BUILD STAGING ----------------
+# ⚙️ Build Staging
 - name: Build Staging
   run: flutter build appbundle --flavor staging -t lib/main_staging.dart
   env:
@@ -69,7 +82,7 @@ jobs:
     ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-# ---------------- BUILD PROD ----------------
+# ⚙️ Build Prod
 - name: Build Prod
   run: flutter build appbundle --flavor prod -t lib/main_prod.dart
   env:
@@ -78,8 +91,7 @@ jobs:
     ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-# ---------------- ARTIFACTS ----------------
-- name: Upload Artifacts
+- name: Upload artifacts
   uses: actions/upload-artifact@v4
   with:
     name: app-bundles
