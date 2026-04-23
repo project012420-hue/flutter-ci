@@ -106,8 +106,8 @@ jobs:
       # 🔥 Setup Firebase App
       - name: Setup Firebase App
         run: |
-          PACKAGE="${{ env.APP_ID }}"
           PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
+          PACKAGE="${{ inputs.package_name }}"
 
           echo "Using package: $PACKAGE"
 
@@ -116,38 +116,37 @@ jobs:
           echo "Firebase apps response:"
           cat apps.json
 
-          # ✅ FIXED: use namespace instead of packageName
-          APP_ID=$(jq -r '
+          FIREBASE_APP_ID=$(jq -r '
             .result
             | map(select(.namespace=="'"$PACKAGE"'"))
             | .[0].appId
           ' apps.json)
 
-          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+          if [ -z "$FIREBASE_APP_ID" ] || [ "$FIREBASE_APP_ID" = "null" ]; then
             echo "App not found. Creating..."
 
-            firebase apps:create ANDROID "$PACKAGE" \
+            firebase apps:create ANDROID "${{ inputs.package_name }}" \
               --project="$PROJECT_ID"
 
             firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
-            APP_ID=$(jq -r '
+            FIREBASE_APP_ID=$(jq -r '
               .result
               | map(select(.namespace=="'"$PACKAGE"'"))
               | .[0].appId
             ' apps.json)
           fi
 
-          echo "Resolved Firebase APP_ID: $APP_ID"
+          echo "Resolved Firebase APP_ID: $FIREBASE_APP_ID"
 
-          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+          if [ -z "$FIREBASE_APP_ID" ] || [ "$FIREBASE_APP_ID" = "null" ]; then
             echo "❌ Failed to resolve Firebase APP_ID"
             exit 1
           fi
 
           echo "Downloading google-services.json..."
 
-          firebase apps:sdkconfig ANDROID "$APP_ID" \
+          firebase apps:sdkconfig ANDROID "$FIREBASE_APP_ID" \
             --project="$PROJECT_ID" > android/app/google-services.json
 
       # ⚙️ Build
