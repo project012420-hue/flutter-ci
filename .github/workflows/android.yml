@@ -105,22 +105,24 @@ jobs:
         run: |
           PACKAGE=${{ inputs.package_name }}
           PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-          
+
           echo "Checking Firebase app..."
-          
-          APP_ID=$(firebase apps:list --project=$PROJECT_ID | grep $PACKAGE | awk '{print $1}')
-          
+
+          APP_ID=$(firebase apps:list --project=$PROJECT_ID --token ${{ secrets.FIREBASE_TOKEN }} | grep $PACKAGE | awk '{print $1}')
+
           if [ -z "$APP_ID" ]; then
             echo "Creating Firebase app..."
             firebase apps:create ANDROID $PACKAGE \
-              --project=$PROJECT_ID
-          
-            APP_ID=$(firebase apps:list --project=$PROJECT_ID | grep $PACKAGE | awk '{print $1}')
+              --project=$PROJECT_ID \
+              --token ${{ secrets.FIREBASE_TOKEN }}
+
+            APP_ID=$(firebase apps:list --project=$PROJECT_ID --token ${{ secrets.FIREBASE_TOKEN }} | grep $PACKAGE | awk '{print $1}')
           fi
-          
+
           echo "Downloading google-services.json..."
           firebase apps:sdkconfig ANDROID $APP_ID \
-            --project=$PROJECT_ID > android/app/google-services.json
+            --project=$PROJECT_ID \
+            --token ${{ secrets.FIREBASE_TOKEN }} > android/app/google-services.json
 
       # ⚙️ Build
       - name: Build AppBundle
