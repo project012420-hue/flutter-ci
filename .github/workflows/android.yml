@@ -57,7 +57,19 @@ jobs:
       # 🔥 Update app name
       - name: Update app name
         run: |
-          sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">$APP_NAME<\/string>/g" android/app/src/main/res/values/strings.xml
+          FILE=android/app/src/main/res/values/strings.xml
+
+          if [ ! -f "$FILE" ]; then
+            echo "⚠️ strings.xml not found, creating..."
+            mkdir -p android/app/src/main/res/values
+            cat > $FILE <<EOF
+      <resources>
+      <string name="app_name">$APP_NAME</string>
+      </resources>
+      EOF
+      else
+      sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">$APP_NAME<\/string>/g" $FILE
+      fi
 
       # 🔐 Generate keystore
       - name: Generate Keystore
