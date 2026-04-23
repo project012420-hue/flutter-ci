@@ -103,26 +103,28 @@ jobs:
       # 🔥 Setup Firebase App
       - name: Setup Firebase App
         run: |
-          PACKAGE=${{ inputs.package_name }}
-          PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          PACKAGE="$APP_ID"
+          PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
+
+          echo "Using package: $PACKAGE"
 
           echo "Checking Firebase app..."
 
-          APP_ID=$(firebase apps:list --project=$PROJECT_ID --token ${{ secrets.FIREBASE_TOKEN }} | grep $PACKAGE | awk '{print $1}')
+          APP_ID=$(firebase apps:list --project=$PROJECT_ID --json | jq -r ".result[] | select(.packageName==\"$PACKAGE\") | .appId")
 
-          if [ -z "$APP_ID" ]; then
+          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
             echo "Creating Firebase app..."
-            firebase apps:create ANDROID $PACKAGE \
-              --project=$PROJECT_ID \
-              --token ${{ secrets.FIREBASE_TOKEN }}
+            firebase apps:create ANDROID "$PACKAGE" \
+              --project="$PROJECT_ID"
 
-            APP_ID=$(firebase apps:list --project=$PROJECT_ID --token ${{ secrets.FIREBASE_TOKEN }} | grep $PACKAGE | awk '{print $1}')
+            APP_ID=$(firebase apps:list --project=$PROJECT_ID --json | jq -r ".result[] | select(.packageName==\"$PACKAGE\") | .appId")
           fi
 
+          echo "Firebase APP_ID: $APP_ID"
+
           echo "Downloading google-services.json..."
-          firebase apps:sdkconfig ANDROID $APP_ID \
-            --project=$PROJECT_ID \
-            --token ${{ secrets.FIREBASE_TOKEN }} > android/app/google-services.json
+          firebase apps:sdkconfig ANDROID "$APP_ID" \
+            --project="$PROJECT_ID" > android/app/google-services.json
 
       # ⚙️ Build
       - name: Build AppBundle
