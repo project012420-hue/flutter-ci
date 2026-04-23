@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,54 +13,74 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ---------------- JAVA ----------------
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # ---------------- FLUTTER ----------------
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.41.7"
 
+      # ---------------- DEPENDENCIES ----------------
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔐 Decode keystore from GitHub Secrets
+      # ---------------- KEYSTORE ----------------
       - name: Decode Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/upload-keystore.jks
 
-      # ⚙️ Build Dev
-      - name: Build Dev
-        run: flutter build appbundle --flavor dev -t lib/main_dev.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      # ---------------- ENTRYPOINT GENERATION ----------------
+      - name: Generate entrypoints
+        run: |
+          mkdir -p lib
 
-      # ⚙️ Build Staging
-      - name: Build Staging
-        run: flutter build appbundle --flavor staging -t lib/main_staging.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          for env in dev staging prod; do
+            cat > lib/main_${env}.dart <<'EOF'
+  import 'main.dart';
+  import 'package:flutter/material.dart';
+  
+  void main() {
+  runApp(const MyApp());
+}
+  EOF
+  done
 
-      # ⚙️ Build Prod
-      - name: Build Prod
-        run: flutter build appbundle --flavor prod -t lib/main_prod.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+# ---------------- BUILD DEV ----------------
+- name: Build Dev
+  run: flutter build appbundle --flavor dev -t lib/main_dev.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-bundles
-          path: build/app/outputs/bundle/
+# ---------------- BUILD STAGING ----------------
+- name: Build Staging
+  run: flutter build appbundle --flavor staging -t lib/main_staging.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+# ---------------- BUILD PROD ----------------
+- name: Build Prod
+  run: flutter build appbundle --flavor prod -t lib/main_prod.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+# ---------------- ARTIFACTS ----------------
+- name: Upload Artifacts
+  uses: actions/upload-artifact@v4
+  with:
+    name: app-bundles
+    path: build/app/outputs/bundle/
