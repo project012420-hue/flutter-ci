@@ -78,7 +78,7 @@ jobs:
           # Convert app name → safe file name
           SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
 
-          KEYSTORE_PATH="${SAFE_NAME}.jks"
+          KEYSTORE_PATH="android/app/${SAFE_NAME}.jks"
 
           echo "Using keystore: $KEYSTORE_PATH"
 
@@ -94,8 +94,8 @@ jobs:
             -dname "CN=${{ inputs.app_name }}, OU=Dev, O=Company, L=City, S=State, C=IN"
 
           # Save for next steps
+          echo "KEYSTORE_FILE=$(basename "$KEYSTORE_PATH")" >> $GITHUB_ENV
           echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> $GITHUB_ENV
-          echo "KEY_ALIAS=$SAFE_NAME" >> $GITHUB_ENV
 
       # 🔥 Firebase CLI
       - name: Install Firebase CLI
@@ -172,7 +172,7 @@ jobs:
             -t lib/main.dart \
             --dart-define=FLAVOR=$FLAVOR
         env:
-          ANDROID_KEYSTORE_PATH:  ${{ env.KEYSTORE_PATH }}
+          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }}
           ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
           ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
