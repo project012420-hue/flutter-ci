@@ -52,10 +52,16 @@ android {
     flavorDimensions += "environment"
 
     productFlavors {
-        create(flavorName) {
+        create("dynamic") {
             dimension = "environment"
-            applicationId = appId
-            resValue("string", "app_name", appName)
+
+            applicationId = project.findProperty("APP_ID")?.toString() ?: "com.example.app"
+
+            resValue(
+                "string",
+                "app_name",
+                project.findProperty("APP_NAME")?.toString() ?: "My App"
+            )
         }
     }
     // ─────────────────────────────────────────────────────
