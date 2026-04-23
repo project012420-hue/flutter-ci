@@ -1,13 +1,23 @@
-name: Flutter Android CI
+name: Flutter Android CI (Dynamic)
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      package_name:
+        description: "Application ID (e.g. com.client.app)"
+        required: true
+      app_name:
+        description: "App Name"
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      FLAVOR: dynamic
+      APP_ID: ${{ inputs.package_name }}
+      APP_NAME: ${{ inputs.app_name }}
 
     steps:
       - name: Checkout code
@@ -25,83 +35,48 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Clean build
+      - name: Clean project
         run: flutter clean
-      - name: Clean Gradle cache
-        run: |
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper
 
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔐 Decode keystore from GitHub Secrets
-      - name: Decode Keystore
+      # 🔐 Generate keystore automatically (no secrets needed)
+      - name: Generate Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/upload-keystore.jks
+          keytool -genkeypair \
+            -v \
+            -keystore android/app/upload-keystore.jks \
+            -alias upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Auto, OU=Dev, O=Company, L=City, S=State, C=IN"
 
-      # ⚙️ AUTO ENTRYPOINT GENERATION (ADDED ONLY THIS)
-      - name: Generate entrypoints
+      # ⚙️ Build AAB (dynamic flavor)
+      - name: Build AppBundle
         run: |
-          mkdir -p lib
+          flutter build appbundle \
+            --flavor $FLAVOR \
+            -t lib/main.dart \
+            --dart-define=FLAVOR=$FLAVOR
 
-          cat > lib/main_dev.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
-  
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
-  
-          cat > lib/main_staging.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
-  
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
-  
-          cat > lib/main_prod.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
-    
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
-
-      # ⚙️ Build Dev
-      - name: Build Dev
-        run: flutter build appbundle --flavor dev -t lib/main_dev.dart
         env:
-          ANDROID_KEYSTORE_PATH: upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+          ANDROID_KEY_ALIAS: upload
+          ANDROID_KEY_PASSWORD: android
+          ANDROID_KEYSTORE_PASSWORD: android
 
-      # ⚙️ Build Staging
-      - name: Build Staging
-        run: flutter build appbundle --flavor staging -t lib/main_staging.dart
-        env:
-          ANDROID_KEYSTORE_PATH: upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          # 🔥 Pass to Gradle
+          ORG_GRADLE_PROJECT_FLAVOR: ${{ env.FLAVOR }}
+          ORG_GRADLE_PROJECT_APP_ID: ${{ env.APP_ID }}
+          ORG_GRADLE_PROJECT_APP_NAME: ${{ env.APP_NAME }}
 
-      # ⚙️ Build Prod
-      - name: Build Prod
-        run: flutter build appbundle --flavor prod -t lib/main_prod.dart
-        env:
-          ANDROID_KEYSTORE_PATH: upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-
-      # 📦 Upload artifacts
-      - name: Upload artifacts
+      # 📦 Upload artifact
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: app-bundles
+          name: ${{ inputs.app_name }}-bundle
           path: build/app/outputs/bundle/

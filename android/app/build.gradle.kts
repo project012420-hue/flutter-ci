@@ -24,12 +24,9 @@ android {
     // ── Signing config ────────────────────────────────────
     signingConfigs {
         create("release") {
-
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 
-            if (keystorePath.isNullOrEmpty()) {
-                println("⚠️ No keystore found, skipping signing config")
-            } else {
+            if (!keystorePath.isNullOrEmpty()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
@@ -48,25 +45,17 @@ android {
     }
 
     // ── Flavors ───────────────────────────────────────────
+    val flavorName = project.findProperty("FLAVOR")?.toString() ?: "dev"
+    val appId = project.findProperty("APP_ID")?.toString() ?: "com.example.app"
+    val appName = project.findProperty("APP_NAME")?.toString() ?: "My App"
+
     flavorDimensions += "environment"
 
     productFlavors {
-        create("dev") {
-            dimension        = "environment"
-            applicationId    = "com.example.screenshare.dev"
-            versionNameSuffix = "-dev"
-            resValue("string", "app_name", "ScreenShare Dev")
-        }
-        create("staging") {
-            dimension        = "environment"
-            applicationId    = "com.example.screenshare.staging"
-            versionNameSuffix = "-staging"
-            resValue("string", "app_name", "ScreenShare Staging")
-        }
-        create("prod") {
-            dimension     = "environment"
-            applicationId = "com.example.screenshare"
-            resValue("string", "app_name", "ScreenShare")
+        create(flavorName) {
+            dimension = "environment"
+            applicationId = appId
+            resValue("string", "app_name", appName)
         }
     }
     // ─────────────────────────────────────────────────────
