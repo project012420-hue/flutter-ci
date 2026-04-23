@@ -85,6 +85,7 @@ android {
     dependencies {
         implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
         implementation("com.google.firebase:firebase-analytics")
+        implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.7.0")
     }
 }
 
