@@ -2,7 +2,7 @@ name: Flutter Android CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -19,82 +19,68 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # ✅ FIXED FLUTTER SETUP (IMPORTANT)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.24.5"
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔐 Decode keystore from GitHub Secrets
+      # 🔐 Decode Keystore
       - name: Decode Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/upload-keystore.jks
 
-      # ⚙️ AUTO ENTRYPOINT GENERATION (ADDED ONLY THIS)
+      # ⚙️ Generate entrypoints (FIXED)
       - name: Generate entrypoints
         run: |
           mkdir -p lib
 
-          cat > lib/main_dev.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
+          for env in dev staging prod; do
+            cat > lib/main_${env}.dart <<EOF
+  import 'package:flutter/material.dart';
+  import 'main.dart';
   
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
-  
-          cat > lib/main_staging.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
-  
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
-  
-          cat > lib/main_prod.dart <<'EOF'
-            import 'main.dart';
-            import 'package:flutter/material.dart';
-    
-              void main() {
-                runApp(const MyApp());
-              }
-          EOF
+  void main() {
+  runApp(const MyApp());
+}
+  EOF
+  done
 
-      # ⚙️ Build Dev
-      - name: Build Dev
-        run: flutter build appbundle --flavor dev -t lib/main_dev.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+# ⚙️ Build Dev
+- name: Build Dev
+  run: flutter build appbundle --flavor dev -t lib/main_dev.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-      # ⚙️ Build Staging
-      - name: Build Staging
-        run: flutter build appbundle --flavor staging -t lib/main_staging.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+# ⚙️ Build Staging
+- name: Build Staging
+  run: flutter build appbundle --flavor staging -t lib/main_staging.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-      # ⚙️ Build Prod
-      - name: Build Prod
-        run: flutter build appbundle --flavor prod -t lib/main_prod.dart
-        env:
-          ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+# ⚙️ Build Prod
+- name: Build Prod
+  run: flutter build appbundle --flavor prod -t lib/main_prod.dart
+  env:
+    ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
+    ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
-      # 📦 Upload artifacts
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-bundles
-          path: build/app/outputs/bundle/
+# 📦 Upload artifacts
+- name: Upload artifacts
+  uses: actions/upload-artifact@v4
+  with:
+    name: app-bundles
+    path: build/app/outputs/bundle/
