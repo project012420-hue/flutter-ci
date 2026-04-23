@@ -4,10 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       package_name:
-        description: "Application ID (e.g. com.client.app)"
         required: true
       app_name:
-        description: "App Name"
+        required: true
+      key_alias:
+        required: true
+      keystore_password:
+        required: true
+      key_password:
         required: true
 
 jobs:
@@ -47,13 +51,13 @@ jobs:
           keytool -genkeypair \
             -v \
             -keystore android/app/upload-keystore.jks \
-            -alias upload \
+            -alias "${{ github.event.inputs.key_alias }}" \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Auto, OU=Dev, O=Company, L=City, S=State, C=IN"
+            -storepass "${{ github.event.inputs.keystore_password }}" \
+            -keypass "${{ github.event.inputs.key_password }}" \
+            -dname "CN=${{ github.event.inputs.app_name }}, OU=Dev, O=Company, L=City, S=State, C=IN"
 
       # ⚙️ Build AAB (dynamic flavor)
       - name: Build AppBundle
@@ -65,9 +69,9 @@ jobs:
 
         env:
           ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
-          ANDROID_KEY_ALIAS: upload
-          ANDROID_KEY_PASSWORD: android
-          ANDROID_KEYSTORE_PASSWORD: android
+          ANDROID_KEY_ALIAS: ${{ github.event.inputs.key_alias }}
+          ANDROID_KEY_PASSWORD: ${{ github.event.inputs.key_password }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ github.event.inputs.keystore_password }}
 
           # 🔥 Pass to Gradle
           ORG_GRADLE_PROJECT_FLAVOR: ${{ env.FLAVOR }}
