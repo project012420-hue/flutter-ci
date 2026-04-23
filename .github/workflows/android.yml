@@ -85,7 +85,7 @@ jobs:
           keytool -genkeypair \
             -v \
             -keystore "$KEYSTORE_PATH" \
-            -alias "$SAFE_NAME" \
+            -alias "${{ inputs.key_alias }}" \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
