@@ -110,18 +110,16 @@ jobs:
           PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
 
           echo "Using package: $PACKAGE"
-          echo "Checking Firebase apps..."
 
-          # Get apps JSON safely
           firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
           echo "Firebase apps response:"
           cat apps.json
 
-          # Try multiple structures
+          # ✅ FIXED: use namespace instead of packageName
           APP_ID=$(jq -r '
-            (.result // .apps // .[] // [])
-            | map(select(.packageName=="'"$PACKAGE"'"))
+            .result
+            | map(select(.namespace=="'"$PACKAGE"'"))
             | .[0].appId
           ' apps.json)
 
@@ -134,8 +132,8 @@ jobs:
             firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
             APP_ID=$(jq -r '
-              (.result // .apps // .[] // [])
-              | map(select(.packageName=="'"$PACKAGE"'"))
+              .result
+              | map(select(.namespace=="'"$PACKAGE"'"))
               | .[0].appId
             ' apps.json)
           fi
