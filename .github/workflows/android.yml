@@ -105,34 +105,34 @@ jobs:
 
       # 🔥 Setup Firebase App
       - name: Setup Firebase App
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
-          PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
-          PACKAGE="${{ inputs.package_name }}"
-
-          echo "Using package: $PACKAGE"
+          echo "Using package: $PACKAGE_NAME"
 
           firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
           echo "Firebase apps response:"
           cat apps.json
 
-          FIREBASE_APP_ID=$(jq -r '
+          FIREBASE_APP_ID=$(jq -r --arg pkg "$PACKAGE_NAME" '
             .result
-            | map(select(.namespace=="'"$PACKAGE"'"))
+            | map(select(.namespace == $pkg))
             | .[0].appId
           ' apps.json)
 
           if [ -z "$FIREBASE_APP_ID" ] || [ "$FIREBASE_APP_ID" = "null" ]; then
             echo "App not found. Creating..."
 
-            firebase apps:create ANDROID "${{ inputs.package_name }}" \
+            firebase apps:create ANDROID "$PACKAGE_NAME" \
               --project="$PROJECT_ID"
 
             firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
-            FIREBASE_APP_ID=$(jq -r '
+            FIREBASE_APP_ID=$(jq -r --arg pkg "$PACKAGE_NAME" '
               .result
-              | map(select(.namespace=="'"$PACKAGE"'"))
+              | map(select(.namespace == $pkg))
               | .[0].appId
             ' apps.json)
           fi
