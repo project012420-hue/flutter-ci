@@ -160,7 +160,10 @@ jobs:
 
           firebase apps:sdkconfig ANDROID "$FIREBASE_APP_ID" \
             --project="$PROJECT_ID" > android/app/google-services.json
-
+      - name: Debug keystore
+        run: |
+          echo "Path: $KEYSTORE_PATH"
+          ls -la android/app
       # ⚙️ Build
       - name: Build AppBundle
         run: |
