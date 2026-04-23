@@ -113,8 +113,7 @@ jobs:
           if [ -z "$APP_ID" ]; then
             echo "Creating Firebase app..."
             firebase apps:create ANDROID $PACKAGE \
-              --project=$PROJECT_ID \
-              --display-name="${{ inputs.app_name }}"
+              --project=$PROJECT_ID
           
             APP_ID=$(firebase apps:list --project=$PROJECT_ID | grep $PACKAGE | awk '{print $1}')
           fi
