@@ -26,17 +26,14 @@ jobs:
       APP_NAME: ${{ inputs.app_name }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
@@ -47,19 +44,35 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔥 Replace package name dynamically
+      # 🔥 Update package name
       - name: Update package name
         run: |
-          sed -i "s/applicationId = \".*\"/applicationId = \"$APP_ID\"/g" android/app/build.gradle.kts
-
-          find android/app/src -type f -name "*.xml" -exec sed -i "s/package=\".*\"/package=\"$APP_ID\"/g" {} +
+          sed -i "s/applicationId = \".*\"/applicationId = \"$APP_ID\"/g" android/app/build.gradle.kts || true
+          find android/app/src -type f -name "*.xml" -exec sed -i "s/package=\".*\"/package=\"$APP_ID\"/g" {} + || true
 
       # 🔥 Update app name
       - name: Update app name
         run: |
-          sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">$APP_NAME<\/string>/g" android/app/src/main/res/values/strings.xml
+          FILE=android/app/src/main/res/values/strings.xml
 
-      # 🔐 Generate keystore
+          if [ ! -f "$FILE" ]; then
+            echo "Creating strings.xml..."
+            mkdir -p android/app/src/main/res/values
+            cat > $FILE <<EOF
+          <resources>
+          <string name="app_name">$APP_NAME</string>
+          </resources>
+          EOF
+          else
+          sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">$APP_NAME<\/string>/g" $FILE
+          fi
+
+# 🔥 Update AndroidManifest label
+      - name: Update Android label
+        run: |
+          sed -i "s/android:label=\".*\"/android:label=\"$APP_NAME\"/g" android/app/src/main/AndroidManifest.xml || true
+
+# 🔐 Generate keystore
       - name: Generate Keystore
         run: |
           keytool -genkeypair \
@@ -77,34 +90,35 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      # 🔥 Firebase Auth
       - name: Authenticate Firebase
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > firebase-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=firebase-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$PWD/firebase-key.json
 
       # 🔥 Remove old config
       - name: Remove old firebase config
         run: rm -f android/app/google-services.json
 
-      # 🔥 Create + Fetch Firebase config
+      # 🔥 Setup Firebase App
       - name: Setup Firebase App
         run: |
           PACKAGE=${{ inputs.package_name }}
           PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-
+          
           echo "Checking Firebase app..."
-
+          
           APP_ID=$(firebase apps:list --project=$PROJECT_ID | grep $PACKAGE | awk '{print $1}')
-
+          
           if [ -z "$APP_ID" ]; then
             echo "Creating Firebase app..."
             firebase apps:create ANDROID $PACKAGE \
               --project=$PROJECT_ID \
               --display-name="${{ inputs.app_name }}"
-
+          
             APP_ID=$(firebase apps:list --project=$PROJECT_ID | grep $PACKAGE | awk '{print $1}')
           fi
-
+          
           echo "Downloading google-services.json..."
           firebase apps:sdkconfig ANDROID $APP_ID \
             --project=$PROJECT_ID > android/app/google-services.json
@@ -116,13 +130,11 @@ jobs:
             --flavor $FLAVOR \
             -t lib/main.dart \
             --dart-define=FLAVOR=$FLAVOR
-
         env:
           ANDROID_KEYSTORE_PATH: android/app/upload-keystore.jks
           ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
           ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
-
           ORG_GRADLE_PROJECT_APP_ID: ${{ env.APP_ID }}
           ORG_GRADLE_PROJECT_APP_NAME: ${{ env.APP_NAME }}
 
