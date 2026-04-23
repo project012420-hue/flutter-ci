@@ -106,7 +106,7 @@ jobs:
       # 🔥 Setup Firebase App
       - name: Setup Firebase App
         run: |
-          PACKAGE="$APP_ID"
+          PACKAGE="${{ env.APP_ID }}"
           PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
 
           echo "Using package: $PACKAGE"
