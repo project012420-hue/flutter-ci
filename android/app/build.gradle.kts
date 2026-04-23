@@ -29,8 +29,8 @@ android {
             val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
             val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
             val storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            storeFile = if (keystorePath.isNotEmpty()) file(keystorePath) else null
-            //storeFile = file("upload-keystore.jks")
+            storeFile = keystorePath?.let { file(it.removePrefix("android/app/")) }
+        //storeFile = file("upload-keystore.jks")
         }
     }
     // ─────────────────────────────────────────────────────
