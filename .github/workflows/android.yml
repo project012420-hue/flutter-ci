@@ -75,16 +75,27 @@ jobs:
 # 🔐 Generate keystore
       - name: Generate Keystore
         run: |
+          # Convert app name → safe file name
+          SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+
+          KEYSTORE_PATH="${SAFE_NAME}.jks"
+
+          echo "Using keystore: $KEYSTORE_PATH"
+
           keytool -genkeypair \
             -v \
-            -keystore android/app/upload-keystore.jks \
-            -alias "${{ inputs.key_alias }}" \
+            -keystore "$KEYSTORE_PATH" \
+            -alias "$SAFE_NAME" \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
             -storepass "${{ inputs.keystore_password }}" \
             -keypass "${{ inputs.key_password }}" \
             -dname "CN=${{ inputs.app_name }}, OU=Dev, O=Company, L=City, S=State, C=IN"
+
+          # Save for next steps
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$SAFE_NAME" >> $GITHUB_ENV
 
       # 🔥 Firebase CLI
       - name: Install Firebase CLI
@@ -158,7 +169,7 @@ jobs:
             -t lib/main.dart \
             --dart-define=FLAVOR=$FLAVOR
         env:
-          ANDROID_KEYSTORE_PATH: upload-keystore.jks
+          ANDROID_KEYSTORE_PATH:  ${{ env.KEYSTORE_PATH }}
           ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
           ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
