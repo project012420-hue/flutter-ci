@@ -71,7 +71,8 @@ jobs:
                 runApp(const MyApp());
               }
           EOF
-
+      - name: Debug Kotlin compile (REAL ERROR)
+        run: ./gradlew compileDevReleaseKotlin --stacktrace
       # ⚙️ Build Dev
       - name: Build Dev
         run: flutter build appbundle --flavor dev -t lib/main_dev.dart
