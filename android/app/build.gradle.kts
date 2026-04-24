@@ -36,30 +36,29 @@ android {
 //    }
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-            val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            val keystorePath = project.findProperty("ANDROID_KEYSTORE_PATH")?.toString()
+            val keystorePassword = project.findProperty("ANDROID_KEYSTORE_PASSWORD")?.toString()
+            val keyAliasVal = project.findProperty("ANDROID_KEY_ALIAS")?.toString()
+            val keyPasswordVal = project.findProperty("ANDROID_KEY_PASSWORD")?.toString()
 
-            // ✅ Only configure if ALL values are present
             if (
                 !keystorePath.isNullOrEmpty() &&
                 !keystorePassword.isNullOrEmpty() &&
-                !keyAlias.isNullOrEmpty() &&
-                !keyPassword.isNullOrEmpty()
+                !keyAliasVal.isNullOrEmpty() &&
+                !keyPasswordVal.isNullOrEmpty()
             ) {
                 val keystoreFile = file(keystorePath)
                 if (keystoreFile.exists()) {
                     storeFile = keystoreFile
                     storePassword = keystorePassword
-                    this.keyAlias = keyAlias
-                    this.keyPassword = keyPassword
+                    this.keyAlias = keyAliasVal
+                    this.keyPassword = keyPasswordVal
                 } else {
                     throw GradleException("Keystore file not found: ${keystoreFile.absolutePath}")
                 }
             } else {
                 throw GradleException(
-                    "Missing signing env vars. Required: ANDROID_KEYSTORE_PATH, " +
+                    "Missing signing props. Required: ANDROID_KEYSTORE_PATH, " +
                             "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
                 )
             }

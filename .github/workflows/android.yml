@@ -191,19 +191,32 @@ jobs:
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
       # ⚙️ Build
+#      - name: Build AppBundle
+#        run: |
+#          flutter build appbundle \
+#            --flavor $FLAVOR \
+#            -t lib/main.dart \
+#            --dart-define=FLAVOR=$FLAVOR
+#        env:
+#          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE}} #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
+#          ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
+#          ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
+#          ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
+#          ORG_GRADLE_PROJECT_APP_ID: ${{ env.APP_ID }}
+#          ORG_GRADLE_PROJECT_APP_NAME: ${{ env.APP_NAME }}
       - name: Build AppBundle
         run: |
           flutter build appbundle \
             --flavor $FLAVOR \
             -t lib/main.dart \
-            --dart-define=FLAVOR=$FLAVOR
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE}} #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
-          ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
-          ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
-          ORG_GRADLE_PROJECT_APP_ID: ${{ env.APP_ID }}
-          ORG_GRADLE_PROJECT_APP_NAME: ${{ env.APP_NAME }}
+            --dart-define=FLAVOR=$FLAVOR \
+            -- \
+            -PANDROID_KEYSTORE_PATH="${{ env.KEYSTORE_PATH }}" \
+            -PANDROID_KEYSTORE_PASSWORD="${{ inputs.keystore_password }}" \
+            -PANDROID_KEY_ALIAS="${{ inputs.key_alias }}" \
+            -PANDROID_KEY_PASSWORD="${{ inputs.key_password }}" \
+            -PAPP_ID="${{ env.APP_ID }}" \
+            -PAPP_NAME="${{ env.APP_NAME }}"
 
       # 📦 Upload
       - name: Upload AAB
