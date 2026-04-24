@@ -190,6 +190,27 @@ jobs:
           ls -la android/app/*.jks || echo "❌ No .jks found"
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
+
+      - name: Write signing to gradle.properties
+        run: |
+          PROPS_FILE="android/gradle.properties"
+
+          # Remove any existing signing props
+          sed -i '/^ANDROID_KEYSTORE/d' $PROPS_FILE
+          sed -i '/^ANDROID_KEY/d' $PROPS_FILE
+          sed -i '/^APP_ID/d' $PROPS_FILE
+          sed -i '/^APP_NAME/d' $PROPS_FILE
+
+          # Write fresh
+          echo "ANDROID_KEYSTORE_PATH=${{ env.KEYSTORE_PATH }}" >> $PROPS_FILE
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ inputs.keystore_password }}" >> $PROPS_FILE
+          echo "ANDROID_KEY_ALIAS=${{ inputs.key_alias }}" >> $PROPS_FILE
+          echo "ANDROID_KEY_PASSWORD=${{ inputs.key_password }}" >> $PROPS_FILE
+          echo "APP_ID=${{ env.APP_ID }}" >> $PROPS_FILE
+          echo "APP_NAME=${{ env.APP_NAME }}" >> $PROPS_FILE
+
+          echo "=== gradle.properties ==="
+          cat $PROPS_FILE
       # ⚙️ Build
 #      - name: Build AppBundle
 #        run: |
@@ -209,14 +230,7 @@ jobs:
           flutter build appbundle \
             --flavor $FLAVOR \
             -t lib/main.dart \
-            --dart-define=FLAVOR=$FLAVOR \
-            -- \
-            -PANDROID_KEYSTORE_PATH="${{ env.KEYSTORE_PATH }}" \
-            -PANDROID_KEYSTORE_PASSWORD="${{ inputs.keystore_password }}" \
-            -PANDROID_KEY_ALIAS="${{ inputs.key_alias }}" \
-            -PANDROID_KEY_PASSWORD="${{ inputs.key_password }}" \
-            -PAPP_ID="${{ env.APP_ID }}" \
-            -PAPP_NAME="${{ env.APP_NAME }}"
+            --dart-define=FLAVOR=$FLAVOR
 
       # 📦 Upload
       - name: Upload AAB
