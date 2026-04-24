@@ -22,15 +22,46 @@ android {
     }
 
     // ── Signing config ────────────────────────────────────
+//    signingConfigs {
+//        create("release") {
+//            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+//
+//            if (!keystorePath.isNullOrEmpty()) {
+//                storeFile = file(keystorePath)
+//                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+//                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+//                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+//            }
+//        }
+//    }
     signingConfigs {
         create("release") {
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
 
-            if (!keystorePath.isNullOrEmpty()) {
-                storeFile = file(keystorePath)
-                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            // ✅ Only configure if ALL values are present
+            if (
+                !keystorePath.isNullOrEmpty() &&
+                !keystorePassword.isNullOrEmpty() &&
+                !keyAlias.isNullOrEmpty() &&
+                !keyPassword.isNullOrEmpty()
+            ) {
+                val keystoreFile = file(keystorePath)
+                if (keystoreFile.exists()) {
+                    storeFile = keystoreFile
+                    storePassword = keystorePassword
+                    this.keyAlias = keyAlias
+                    this.keyPassword = keyPassword
+                } else {
+                    throw GradleException("Keystore file not found: ${keystoreFile.absolutePath}")
+                }
+            } else {
+                throw GradleException(
+                    "Missing signing env vars. Required: ANDROID_KEYSTORE_PATH, " +
+                            "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
+                )
             }
         }
     }
