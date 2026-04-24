@@ -177,6 +177,11 @@ jobs:
         run: |
           echo "Path: $KEYSTORE_PATH"
           ls -la android/app
+      - name: Compute keystore name
+        run: |
+          SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          echo "KEYSTORE_PATH=android/app/${SAFE_NAME}.jks" >> $GITHUB_ENV
       # ⚙️ Build
       - name: Build AppBundle
         run: |
@@ -185,7 +190,7 @@ jobs:
             -t lib/main.dart \
             --dart-define=FLAVOR=$FLAVOR
         env:
-          ANDROID_KEYSTORE_PATH: android/app/${{ inputs.app_name | toLowerCase }}.jks #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
+          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }} #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
           ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
           ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
