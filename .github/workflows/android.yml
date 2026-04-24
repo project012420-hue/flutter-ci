@@ -28,7 +28,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      FLAVOR: dynamic
       APP_ID: ${{ inputs.package_name }}
       APP_NAME: ${{ inputs.app_name }}
       MODE: ${{ inputs.mode }}
@@ -37,6 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -53,42 +53,49 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔥 Update package name
-      - name: Update package name
+      # 🆕 Compute SAFE_NAME + FLAVOR_NAME early — used by all steps below
+      - name: Compute flavor name
         run: |
-          sed -i "s/applicationId = \".*\"/applicationId = \"$APP_ID\"/g" android/app/build.gradle.kts || true
-          find android/app/src -type f -name "*.xml" -exec sed -i "s/package=\".*\"/package=\"$APP_ID\"/g" {} + || true
+          SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          echo "FLAVOR_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          echo "KEYSTORE_PATH=android/app/${SAFE_NAME}.jks" >> $GITHUB_ENV
+          echo "Flavor: $SAFE_NAME"
 
-      # 🔥 Update app name
-      - name: Update app name
+      # 🆕 Add new flavor block to build.gradle.kts
+      - name: Add flavor to build.gradle.kts
+        if: inputs.mode == 'setup'
         run: |
-          FILE=android/app/src/main/res/values/strings.xml
+          FLAVOR_NAME="${{ env.FLAVOR_NAME }}"
+          PACKAGE="${{ inputs.package_name }}"
+          APP_NAME="${{ inputs.app_name }}"
 
-          if [ ! -f "$FILE" ]; then
-            echo "Creating strings.xml..."
-            mkdir -p android/app/src/main/res/values
-            cat > $FILE <<EOF
-          <resources>
-          <string name="app_name">$APP_NAME</string>
-          </resources>
-          EOF
+          echo "Adding flavor: $FLAVOR_NAME ($PACKAGE)"
+
+          if grep -q "create(\"$FLAVOR_NAME\")" android/app/build.gradle.kts; then
+            echo "⚠️ Flavor $FLAVOR_NAME already exists, skipping"
           else
-          sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">$APP_NAME<\/string>/g" $FILE
+            # Build the new flavor block
+            NEW_FLAVOR="        create(\"$FLAVOR_NAME\") {\n            dimension = \"environment\"\n            applicationId = \"$PACKAGE\"\n            resValue(\"string\", \"app_name\", \"$APP_NAME\")\n        }"
+
+            # Insert after productFlavors {
+            sed -i "/productFlavors {/a\\$NEW_FLAVOR" android/app/build.gradle.kts
+            echo "✅ Flavor $FLAVOR_NAME added"
           fi
 
-# 🔥 Update AndroidManifest label
+          echo "=== productFlavors section ==="
+          grep -A5 "productFlavors" android/app/build.gradle.kts
+
+      # 🔥 Update AndroidManifest label
       - name: Update Android label
         run: |
           sed -i "s/android:label=\".*\"/android:label=\"$APP_NAME\"/g" android/app/src/main/AndroidManifest.xml || true
 
-# 🔐 Generate keystore
+      # 🔐 Generate keystore
       - name: Generate Keystore
         if: inputs.mode == 'setup'
         run: |
-          # Convert app name → safe file name
-          SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
-
-          KEYSTORE_PATH="android/app/${SAFE_NAME}.jks"
+          KEYSTORE_PATH="android/app/${{ env.SAFE_NAME }}.jks"
 
           echo "Using keystore: $KEYSTORE_PATH"
 
@@ -103,9 +110,8 @@ jobs:
             -keypass "${{ inputs.key_password }}" \
             -dname "CN=${{ inputs.app_name }}, OU=Dev, O=Company, L=City, S=State, C=IN"
 
-          # Save for next steps
-          echo "KEYSTORE_FILE=$(basename "$KEYSTORE_PATH")" >> $GITHUB_ENV
-          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> $GITHUB_ENV
+          echo "KEYSTORE_FILE=${{ env.SAFE_NAME }}.jks" >> $GITHUB_ENV
+          echo "✅ Keystore generated"
 
       # 🔥 Firebase CLI
       - name: Install Firebase CLI
@@ -136,9 +142,6 @@ jobs:
 
           firebase apps:list --project="$PROJECT_ID" --json > apps.json
 
-          echo "Firebase apps response:"
-          cat apps.json
-
           FIREBASE_APP_ID=$(jq -r --arg pkg "$PACKAGE_NAME" '
             .result
             | map(select(.namespace == $pkg))
@@ -168,28 +171,12 @@ jobs:
             exit 1
           fi
 
-          echo "Downloading google-services.json..."
-
           firebase apps:sdkconfig ANDROID "$FIREBASE_APP_ID" \
             --project="$PROJECT_ID" > android/app/google-services.json
-      - name: Debug keystore
-        run: |
-          echo "Path: $KEYSTORE_PATH"
-          ls -la android/app
-      - name: Compute keystore name
-        run: |
-          SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
-          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
-          echo "KEYSTORE_PATH=android/app/${SAFE_NAME}.jks" >> $GITHUB_ENV
 
-      - name: Debug signing env
-        run: |
-          echo "KEYSTORE_PATH: '${{ env.KEYSTORE_PATH }}'"
-          echo "KEY_ALIAS: '${{ inputs.key_alias }}'"
-          echo "KEYSTORE_PASSWORD length: ${#ANDROID_KEYSTORE_PASSWORD}"
-          ls -la android/app/*.jks || echo "❌ No .jks found"
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
+      # 🔥 Fix AGP 9 DSL
+      - name: Fix AGP 9 DSL
+        run: echo "android.newDsl=false" >> android/gradle.properties
 
       - name: Write signing to gradle.properties
         run: |
@@ -200,7 +187,6 @@ jobs:
           sed -i '/^APP_ID/d' $PROPS_FILE
           sed -i '/^APP_NAME/d' $PROPS_FILE
 
-          # ✅ Just the filename — Gradle resolves from android/app/ automatically
           echo "ANDROID_KEYSTORE_PATH=${{ env.SAFE_NAME }}.jks" >> $PROPS_FILE
           echo "ANDROID_KEYSTORE_PASSWORD=${{ inputs.keystore_password }}" >> $PROPS_FILE
           echo "ANDROID_KEY_ALIAS=${{ inputs.key_alias }}" >> $PROPS_FILE
@@ -210,26 +196,18 @@ jobs:
 
           echo "=== gradle.properties ==="
           cat $PROPS_FILE
-      # ⚙️ Build
-#      - name: Build AppBundle
-#        run: |
-#          flutter build appbundle \
-#            --flavor $FLAVOR \
-#            -t lib/main.dart \
-#            --dart-define=FLAVOR=$FLAVOR
-#        env:
-#          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE}} #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
-#          ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
-#          ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
-#          ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
-#          ORG_GRADLE_PROJECT_APP_ID: ${{ env.APP_ID }}
-#          ORG_GRADLE_PROJECT_APP_NAME: ${{ env.APP_NAME }}
+
+          echo "=== Verifying keystore ==="
+          ls -la android/app/*.jks || echo "❌ No .jks found"
+
+      # ⚙️ Build — 🆕 uses FLAVOR_NAME instead of hardcoded dynamic
       - name: Build AppBundle
         run: |
           flutter build appbundle \
-            --flavor $FLAVOR \
+            --flavor ${{ env.FLAVOR_NAME }} \
             -t lib/main.dart \
-            --dart-define=FLAVOR=$FLAVOR
+            --dart-define=FLAVOR=${{ env.FLAVOR_NAME }} \
+            --android-skip-build-dependency-validation
 
       # 📦 Upload
       - name: Upload AAB
@@ -238,17 +216,16 @@ jobs:
           name: ${{ inputs.app_name }}-bundle
           path: build/app/outputs/bundle/
 
+      # 🆕 Commit — now also includes build.gradle.kts
       - name: Commit generated files
         if: inputs.mode == 'setup'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          echo "Adding keystore: $KEYSTORE_PATH"
-
-          git add "$KEYSTORE_PATH"
+          git add "${{ env.KEYSTORE_PATH }}"
           git add android/app/google-services.json
+          git add android/app/build.gradle.kts
 
-          git commit -m "Auto add keystore ($KEYSTORE_PATH) + firebase for $APP_ID" || echo "No changes"
-
+          git commit -m "Add flavor ${{ env.FLAVOR_NAME }} (${{ env.APP_ID }})" || echo "No changes"
           git push
