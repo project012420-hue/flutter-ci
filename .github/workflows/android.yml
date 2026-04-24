@@ -181,6 +181,15 @@ jobs:
           SAFE_NAME=$(echo "${{ inputs.app_name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
           echo "KEYSTORE_PATH=android/app/${SAFE_NAME}.jks" >> $GITHUB_ENV
+
+      - name: Debug signing env
+        run: |
+          echo "KEYSTORE_PATH: '${{ env.KEYSTORE_PATH }}'"
+          echo "KEY_ALIAS: '${{ inputs.key_alias }}'"
+          echo "KEYSTORE_PASSWORD length: ${#ANDROID_KEYSTORE_PASSWORD}"
+          ls -la android/app/*.jks || echo "❌ No .jks found"
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
       # ⚙️ Build
       - name: Build AppBundle
         run: |
