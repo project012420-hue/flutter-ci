@@ -185,7 +185,7 @@ jobs:
             -t lib/main.dart \
             --dart-define=FLAVOR=$FLAVOR
         env:
-          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }} # FILE
+          ANDROID_KEYSTORE_PATH: android/app/${{ inputs.app_name | toLowerCase }}.jks #ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_FILE }} # FILE
           ANDROID_KEY_ALIAS: ${{ inputs.key_alias }}
           ANDROID_KEY_PASSWORD: ${{ inputs.key_password }}
           ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore_password }}
