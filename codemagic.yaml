@@ -63,6 +63,22 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
+      - name: Set iOS deployment target
+        script: |
+          # Set minimum iOS version in Podfile
+          sed -i '' "s/# platform :ios, '12.0'/platform :ios, '14.0'/" ios/Podfile
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '14.0'/" ios/Podfile
+          sed -i '' "s/platform :ios, '12.0'/platform :ios, '14.0'/" ios/Podfile
+
+          # Also set in Xcode project
+          sed -i '' \
+            "s/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" \
+            ios/Runner.xcodeproj/project.pbxproj
+
+          echo "✅ iOS deployment target set to 14.0"
+          echo "=== Podfile platform line ==="
+          grep "platform" ios/Podfile
+
       - name: Install pods
         script: |
           cd ios && pod install
