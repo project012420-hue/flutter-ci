@@ -82,6 +82,11 @@ android {
     flavorDimensions += "environment"
 
     productFlavors {
+        create("therealapp") {
+            dimension = "environment"
+            applicationId = "com.example.TheRealApp"
+            resValue("string", "app_name", "TheRealApp")
+        }
         create("dynamic") {
             dimension = "environment"
 

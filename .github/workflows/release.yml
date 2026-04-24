@@ -1,0 +1,81 @@
+name: Release to Play Store
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    env:
+      FLAVOR: dynamic
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Clean project
+        run: flutter clean
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Fix AGP 9 DSL
+        run: echo "android.newDsl=false" >> android/gradle.properties
+
+      - name: Compute keystore name
+        run: |
+          SAFE_NAME=$(echo "${{ secrets.APP_NAME }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          echo "KEYSTORE_PATH=android/app/${SAFE_NAME}.jks" >> $GITHUB_ENV
+
+      - name: Write signing to gradle.properties
+        run: |
+          PROPS_FILE="android/gradle.properties"
+
+          sed -i '/^ANDROID_KEYSTORE/d' $PROPS_FILE
+          sed -i '/^ANDROID_KEY/d' $PROPS_FILE
+          sed -i '/^APP_ID/d' $PROPS_FILE
+          sed -i '/^APP_NAME/d' $PROPS_FILE
+
+          echo "ANDROID_KEYSTORE_PATH=${{ env.SAFE_NAME }}.jks" >> $PROPS_FILE
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $PROPS_FILE
+          echo "ANDROID_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $PROPS_FILE
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $PROPS_FILE
+          echo "APP_ID=${{ secrets.APP_ID }}" >> $PROPS_FILE
+          echo "APP_NAME=${{ secrets.APP_NAME }}" >> $PROPS_FILE
+
+          echo "=== gradle.properties ==="
+          cat $PROPS_FILE
+
+      - name: Build AppBundle
+        run: |
+          flutter build appbundle \
+            --flavor $FLAVOR \
+            -t lib/main.dart \
+            --dart-define=FLAVOR=$FLAVOR
+
+      - name: Upload to Play Store
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ secrets.APP_ID }}
+          releaseFiles: build/app/outputs/bundle/dynamicRelease/*.aab
+          track: production
+          status: completed

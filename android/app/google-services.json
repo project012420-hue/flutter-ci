@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:1d998f342e41bb5eac505d",
+        "android_client_info": {
+          "package_name": "com.example.TheRealApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:830779033064:android:3118d2075d84b7baac505d",
         "android_client_info": {
           "package_name": "com.example.notification_test"
@@ -143,6 +162,25 @@
         "mobilesdk_app_id": "1:830779033064:android:477855799aeba2bdac505d",
         "android_client_info": {
           "package_name": "com.example.test4"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:01784db36baa878fac505d",
+        "android_client_info": {
+          "package_name": "com.example.test5"
         }
       },
       "oauth_client": [],
