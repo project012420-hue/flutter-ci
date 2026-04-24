@@ -64,6 +64,25 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:830779033064:android:bfba9ad97e19587cac505d",
+        "android_client_info": {
+          "package_name": "com.example.TheRealApp7"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6uqLZA2_q9XtW0IAzU-IW_PuRcRIaHRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:830779033064:android:83d7da3e433db9cfac505d",
         "android_client_info": {
           "package_name": "com.example.TheRealAppThe2"
