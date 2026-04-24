@@ -195,14 +195,13 @@ jobs:
         run: |
           PROPS_FILE="android/gradle.properties"
 
-          # Remove any existing signing props
           sed -i '/^ANDROID_KEYSTORE/d' $PROPS_FILE
           sed -i '/^ANDROID_KEY/d' $PROPS_FILE
           sed -i '/^APP_ID/d' $PROPS_FILE
           sed -i '/^APP_NAME/d' $PROPS_FILE
 
-          # Write fresh
-          echo "ANDROID_KEYSTORE_PATH=${{ env.KEYSTORE_PATH }}" >> $PROPS_FILE
+          # ✅ Just the filename — Gradle resolves from android/app/ automatically
+          echo "ANDROID_KEYSTORE_PATH=${{ env.SAFE_NAME }}.jks" >> $PROPS_FILE
           echo "ANDROID_KEYSTORE_PASSWORD=${{ inputs.keystore_password }}" >> $PROPS_FILE
           echo "ANDROID_KEY_ALIAS=${{ inputs.key_alias }}" >> $PROPS_FILE
           echo "ANDROID_KEY_PASSWORD=${{ inputs.key_password }}" >> $PROPS_FILE
