@@ -1,0 +1,96 @@
+workflows:
+  ios-build:
+    name: iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        # ✅ These get overridden by API trigger variables
+        APP_NAME: "Default App"
+        BUNDLE_ID: "com.example.app"
+        FLAVOR_NAME: "default_app"
+
+    scripts:
+      - name: Compute flavor name
+        script: |
+          # Derive flavor from app name — same logic as Android CI
+          SAFE_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+
+          # Block reserved names
+          if [[ "$SAFE_NAME" == test* ]] || [[ "$SAFE_NAME" == main* ]]; then
+            SAFE_NAME="app_${SAFE_NAME}"
+            echo "⚠️ Reserved name, renamed to: $SAFE_NAME"
+          fi
+
+          echo "FLAVOR_NAME=$SAFE_NAME" >> $CM_ENV
+          echo "✅ Flavor: $SAFE_NAME"
+
+      - name: Set bundle ID
+        script: |
+          echo "Setting bundle ID: $BUNDLE_ID"
+          sed -i '' \
+            "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" \
+            ios/Runner.xcodeproj/project.pbxproj
+          echo "✅ Bundle ID: $BUNDLE_ID"
+
+      - name: Set app display name
+        script: |
+          echo "Setting app name: $APP_NAME"
+          plutil -replace CFBundleDisplayName \
+            -string "$APP_NAME" \
+            ios/Runner/Info.plist
+          plutil -replace CFBundleName \
+            -string "$APP_NAME" \
+            ios/Runner/Info.plist
+          echo "✅ App name: $APP_NAME"
+
+      - name: Add iOS flavor to Xcode if not exists
+        script: |
+          echo "Flavor: $FLAVOR_NAME"
+          echo "Bundle: $BUNDLE_ID"
+          # iOS uses schemes — check if scheme exists
+          SCHEME_PATH="ios/Runner.xcodeproj/xcshareddata/xcschemes/${FLAVOR_NAME}.xcscheme"
+          if [ -f "$SCHEME_PATH" ]; then
+            echo "⚠️ Scheme $FLAVOR_NAME already exists, skipping"
+          else
+            echo "✅ Using default Runner scheme (no code signing yet)"
+          fi
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install pods
+        script: |
+          cd ios && pod install
+        ignore_failure: false
+
+      - name: Build iOS (no code signing)
+        script: |
+          flutter build ios \
+            --release \
+            -t lib/main.dart \
+            --no-codesign
+
+      - name: Package IPA
+        script: |
+          mkdir -p build/ios/ipa
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../ipa/${FLAVOR_NAME}.ipa Payload
+          echo "✅ IPA packaged: ${FLAVOR_NAME}.ipa"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - your@email.com   # ← change this
+        notify:
+          success: true
+          failure: true

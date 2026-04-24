@@ -229,3 +229,24 @@ jobs:
 
           git commit -m "Add flavor ${{ env.FLAVOR_NAME }} (${{ env.APP_ID }})" || echo "No changes"
           git push
+      # 🆕 Trigger Codemagic iOS build automatically
+      - name: Trigger Codemagic iOS Build
+        if: inputs.mode == 'setup'
+        run: |
+          curl --request POST \
+            --url https://api.codemagic.io/builds \
+            --header "x-auth-token: ${{ secrets.CODEMAGIC_API_TOKEN }}" \
+            --header "Content-Type: application/json" \
+            --data "{
+              \"appId\": \"${{ secrets.CODEMAGIC_APP_ID }}\",
+              \"workflowId\": \"ios-build\",
+              \"branch\": \"main\",
+              \"environment\": {
+                \"variables\": {
+                  \"APP_NAME\": \"${{ inputs.app_name }}\",
+                  \"BUNDLE_ID\": \"${{ inputs.package_name }}\",
+                  \"FLAVOR_NAME\": \"${{ env.FLAVOR_NAME }}\"
+                }
+              }
+            }"
+          echo "✅ Codemagic iOS build triggered"
